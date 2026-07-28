@@ -1,4 +1,3 @@
-import { includes } from 'zod';
 import crypto from "crypto";
 import { errorHandler } from "../utils/errorHandler";
 import { Request, Response } from "express";
@@ -45,7 +44,7 @@ export const getOrCreateCart = async (token: string, userId?: string) => {
 
 export const addToCart = async (req: AuthRequest, res: Response) => {
     try {
-        const { productId, quantity = "1" } = req.body;
+        const { productId, quantity = "1", subscriptionIntervalDays } = req.body;
         if (!productId) return errorHandler(res, 404, "Product id is required!");
         const product = await prisma.product.findFirst({
             where: { id: productId, isActive: true }
@@ -58,18 +57,24 @@ export const addToCart = async (req: AuthRequest, res: Response) => {
 
         let cart: any = await getOrCreateCart(token, userId);
 
+        // null/undefined = one-time purchase; any other value clears any
+        // previous "Subscribe & Save" choice for this line.
+        const intervalDays =
+            subscriptionIntervalDays === undefined ? undefined : (Number(subscriptionIntervalDays) || null);
+
         const existingItem = await prisma.cartItem.findUnique({
             where: { cartId_productId: { cartId: cart.id, productId } },
         });
-        // if (!existingItem) errorHandler(res, 404, "The cart item not found")
 
         if (existingItem) {
             await prisma.cartItem.update({
                 where: { id: existingItem.id },
-                data: { quantity: parseInt(quantity) }   // parse quantity
+                data: { quantity: parseInt(quantity), subscriptionIntervalDays: intervalDays }   // parse quantity
             });
         } else {
-            await prisma.cartItem.create({ data: { cartId: cart.id, productId, quantity } });
+            await prisma.cartItem.create({
+                data: { cartId: cart.id, productId, quantity, subscriptionIntervalDays: intervalDays ?? null },
+            });
         }
 
         const updatedCart = await prisma.cart.findUnique({
@@ -79,7 +84,7 @@ export const addToCart = async (req: AuthRequest, res: Response) => {
 
         return errorHandler(res, 200, "The cart added successfully", false, updatedCart);
     } catch (error: any) {
-        errorHandler(res, 500, error.message || "Internal server error!")
+        return errorHandler(res, 500, error.message || "Internal server error!")
     }
 };
 
@@ -93,42 +98,48 @@ export const getCart = async (req: AuthRequest, res: Response) => {
         const cart = await getOrCreateCart(token, userId)
         return errorHandler(res, 200, "The cart got successfully", false, cart)
     } catch (error: any) {
-        errorHandler(res, 500, error.message || "Internal server error!")
+        return errorHandler(res, 500, error.message || "Internal server error!")
     }
 };
 
 
-
-
-
-
 export const updateCartItem = async (req: AuthRequest, res: Response) => {
     try {
-        // const {itemId} = req.params;
-        const { quantity, itemId } = req.body;
-        if (quantity < 1) errorHandler(res, 400, "the cart quantity must be 1");
+        const { quantity, itemId, subscriptionIntervalDays } = req.body;
+        if (!itemId) return errorHandler(res, 400, "itemId is required");
+        if (quantity < 1) return errorHandler(res, 400, "The cart quantity must be at least 1");
 
-
-        const item = await prisma.cartItem.update({
+        // Verify ownership BEFORE mutating anything — an item belonging to
+        // another user's/guest's cart must never be updated.
+        const existing = await prisma.cartItem.findUnique({
             where: { id: itemId },
-            data: { quantity },
-            include: { cart: true }
+            include: { cart: true },
         });
+        if (!existing) return errorHandler(res, 404, "The cart item not found!");
 
         const token = await getCartToken(req, res);
         const userId = req.userId;
-        if (userId && item.cart.userId !== userId || (!userId && item.cart.token !== token)) {
-            errorHandler(res, 400, "Unauthorized!",)
+        const owns = userId ? existing.cart.userId === userId : existing.cart.token === token;
+        if (!owns) return errorHandler(res, 403, "Unauthorized");
+
+        const data: any = { quantity };
+        if (subscriptionIntervalDays !== undefined) {
+            data.subscriptionIntervalDays = Number(subscriptionIntervalDays) || null;
         }
+        const item = await prisma.cartItem.update({
+            where: { id: itemId },
+            data,
+            include: { cart: true }
+        });
 
         const updatedItem = await prisma.cart.findUnique({
             where: { id: item.cartId },
             include: { items: { include: { product: true } } }
         })
 
-        errorHandler(res, 200, "The cart item updated successfully!", false, updatedItem);
+        return errorHandler(res, 200, "The cart item updated successfully!", false, updatedItem);
     } catch (error: any) {
-        errorHandler(res, 500, error.message || "internal server error!")
+        return errorHandler(res, 500, error.message || "internal server error!")
     }
 };
 
@@ -136,79 +147,78 @@ export const updateCartItem = async (req: AuthRequest, res: Response) => {
 export const deleteCartItem = async (req: AuthRequest, res: Response) => {
     try {
         const { itemId } = req.body;
+        if (!itemId) return errorHandler(res, 400, "itemId is required");
 
         const item = await prisma.cartItem.findUnique({
             where: { id: itemId },
             include: { cart: true }
         })
-
-        if (!item) errorHandler(res, 404, "The cart not found!");
+        if (!item) return errorHandler(res, 404, "The cart item not found!");
 
         const token = await getCartToken(req, res);
         const userId = req.userId;
+        const owns = userId ? item.cart.userId === userId : item.cart.token === token;
+        if (!owns) return errorHandler(res, 403, "Unauthorized");
 
-        if (userId && item?.cart.userId !== userId || (!userId && item?.cart.token !== token)) {
-            errorHandler(res, 400, "Unauthorized")
-        };
-
+        const cartId = item.cartId;
         await prisma.cartItem.delete({ where: { id: itemId } });
         const updatedCartItem = await prisma.cart.findUnique({
-            where: { id: itemId },
+            where: { id: cartId },
             include: { items: { include: { product: true } } }
         })
         return errorHandler(res, 200, "The Cart Item has been deleted successfully!", false, updatedCartItem);
     } catch (error: any) {
-        errorHandler(res, 500, error.message || "internal server error!")
+        return errorHandler(res, 500, error.message || "internal server error!")
     }
 };
-
-
 
 
 
 // POST /api/cart/merge - When user logs in, merge guest cart into user's cart
 export const mergeCartAfterLogin = async (req: AuthRequest, res: Response) => {
     try {
-        const userid = req.userId;
-        if (!userid) errorHandler(res, 400, "Unauthorized");
+        const userId = req.userId;
+        if (!userId) return errorHandler(res, 401, "Unauthorized");
         const token = req.cookies.cartToken;
-        if (!token) errorHandler(res, 404, "No guest cart to merge")
+        if (!token) return errorHandler(res, 200, "No guest cart to merge", false, null);
 
-        const guestCart: any = await prisma.cart.findUnique({
-            where: { id: userid },
-            include: { items: true }
-        })
-        if (!guestCart) errorHandler(res, 404, "The guest cart not found!")
+        // The guest cart is identified by its token cookie, not by user id.
+        const guestCart = await prisma.cart.findFirst({
+            where: { token },
+            include: { items: true },
+        });
+        if (!guestCart) return errorHandler(res, 200, "No guest cart to merge", false, null);
 
-        let userCart: any = await prisma.cart.findUnique({ where: { userId: userid } });
+        let userCart = await prisma.cart.findUnique({ where: { userId } });
         if (!userCart) {
-            await prisma.cart.create({ data: { userId: userid } })
+            userCart = await prisma.cart.create({ data: { userId } });
         }
 
         for (const guestItem of guestCart.items) {
-            const existingUserItems = await prisma.cartItem.findUnique({
+            const existingUserItem = await prisma.cartItem.findUnique({
                 where: { cartId_productId: { cartId: userCart.id, productId: guestItem.productId } }
             });
 
-            if (existingUserItems) {
+            if (existingUserItem) {
                 // Combine quantities
                 await prisma.cartItem.update({
-                    where: { id: existingUserItems.id },
-                    data: { quantity: existingUserItems.quantity + guestItem.quantity }
+                    where: { id: existingUserItem.id },
+                    data: { quantity: existingUserItem.quantity + guestItem.quantity }
                 })
             } else {
                 await prisma.cartItem.create({
                     data: {
                         cartId: userCart.id,
-                        productId: guestItem.id,
+                        productId: guestItem.productId,
                         quantity: guestItem.quantity,
                     }
                 })
             }
         }
 
-        // Delete guest cart (optional, you can keep it but disconnect)
-
+        // Guest cart's items reference it via a required relation, so delete
+        // the items first, then the now-empty guest cart.
+        await prisma.cartItem.deleteMany({ where: { cartId: guestCart.id } });
         await prisma.cart.delete({ where: { id: guestCart.id } });
 
         // Clear the cart token cookie
@@ -221,6 +231,6 @@ export const mergeCartAfterLogin = async (req: AuthRequest, res: Response) => {
 
         return errorHandler(res, 200, "Guest Cart merged successfully!", false, mergedCart);
     } catch (error: any) {
-        errorHandler(res, 500, error.message || "Internal server error")
+        return errorHandler(res, 500, error.message || "Internal server error")
     }
 };

@@ -5,10 +5,10 @@
 :root {
   --background: #F7F4EF;
   --foreground: #80664c;
-  --primary:#EDE6DC;
-  --primary-hover:#e9dcc8;
-  --secondary: #394624;
-  --secondary-hover:#4F5B3A;
+  --secondary:#EDE6DC;
+  --secondary-hover:#e9dcc8;
+  --primary: #977446;
+  --primary-hover:#795122;
   --text:#3D3C3B;
   --text-hover:#35312d;
   --shadow: 0px 4.42184px 107.23px rgb(229, 224, 211);

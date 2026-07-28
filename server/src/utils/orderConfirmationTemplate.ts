@@ -7,7 +7,8 @@ interface OrderItem {
 }
 
 interface OrderEmailData {
-    name: string;
+    firstName: string;
+    lastName: string;
     orderNumber: string;
     createdAt: Date | string;
     items: OrderItem[];
@@ -20,6 +21,7 @@ interface OrderEmailData {
 }
 
 export const orderConfirmationTemplate = (data: OrderEmailData): string => {
+    const name = data.firstName + " " + data?.lastName;
     const itemRows = data.items.map((item) => `
     <tr>
       <td style="padding:12px 16px;border-bottom:1px solid #F3F4F6;font-size:14px;color:#374151;">
@@ -54,7 +56,7 @@ export const orderConfirmationTemplate = (data: OrderEmailData): string => {
           <!-- Header -->
           <tr>
             <td style="background:#2563EB;padding:32px 40px;text-align:center;">
-              <h1 style="margin:0;color:#FFFFFF;font-size:24px;font-weight:700;letter-spacing:-0.5px;">Health U Shop</h1>
+              <h1 style="margin:0;color:#FFFFFF;font-size:24px;font-weight:700;letter-spacing:-0.5px;">Health U Cloths</h1>
               <p style="margin:6px 0 0;color:#BFDBFE;font-size:14px;">Your order has been confirmed!</p>
             </td>
           </tr>
@@ -62,7 +64,7 @@ export const orderConfirmationTemplate = (data: OrderEmailData): string => {
           <!-- Greeting -->
           <tr>
             <td style="padding:32px 40px 0;">
-              <h2 style="margin:0 0 8px;font-size:20px;color:#111827;font-weight:700;">Thank you, ${data.name}! 🎉</h2>
+              <h2 style="margin:0 0 8px;font-size:20px;color:#111827;font-weight:700;">Thank you, ${name}  ! 🎉</h2>
               <p style="margin:0;font-size:14px;color:#6B7280;line-height:1.6;">
                 We've received your order and it's being processed. Your invoice is attached to this email as a PDF.
               </p>
@@ -162,14 +164,13 @@ export const orderConfirmationTemplate = (data: OrderEmailData): string => {
           <tr>
             <td style="padding:32px 40px;text-align:center;border-top:1px solid #F3F4F6;margin-top:24px;">
               <p style="margin:0 0 6px;font-size:13px;color:#6B7280;">
-                Questions? Contact us at <a href="mailto:support@healthushop.com.au" style="color:#2563EB;text-decoration:none;">support@healthushop.com.au</a>
+                Questions? Contact us at <a href="mailto:hello@mybestiee.com.au" style="color:#2563EB;text-decoration:none;">hello@mybestiee.com.au</a>
               </p>
               <p style="margin:0;font-size:12px;color:#9CA3AF;">
-                © ${new Date().getFullYear()} Health U Shop. All rights reserved.
+                © ${new Date().getFullYear()} Health U Cloths. All rights reserved.
               </p>
             </td>
           </tr>
-
         </table>
       </td>
     </tr>

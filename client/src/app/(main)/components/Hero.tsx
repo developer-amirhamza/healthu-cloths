@@ -50,13 +50,13 @@ const Hero = () => {
                     <div className="flex flex-wrap gap-5">
                         <Link
                             href="/products"
-                            className="flex items-center font-primary uppercase shadow-xl hover:shadow-2xl  gap-2 bg-secondary hover:bg-secondary-hover text-background font-semibold px-6 py-3 rounded-full hover:scale-105 transition-all duration-300  text-sm"
+                            className="flex items-center font-primary uppercase shadow-xl hover:shadow-2xl  gap-2 bg-primary hover:bg-primary-hover text-background font-semibold px-6 py-3 rounded-full hover:scale-105 transition-all duration-300  text-sm"
                         >
                             Shop products →
                         </Link>
                         <Link
                             href="/contact-us"
-                            className="flex items-center shadow-xl hover:shadow-2xl gap-2 uppercase hover:scale-105 transition-all duration-300 border border-primary-hover hover:border-secondary hover:text-secondary-hover text-text font-semibold px-6 py-3 rounded-full  text-sm bg-primary"
+                            className="flex items-center shadow-xl hover:shadow-2xl gap-2 uppercase hover:scale-105 transition-all duration-300 border border-secondary-hover hover:border-primary hover:text-primary-hover text-text font-semibold px-6 py-3 rounded-full  text-sm bg-secondary"
                         >
                             <FaPhoneAlt size={13} />
                             Talk to NDIS Support

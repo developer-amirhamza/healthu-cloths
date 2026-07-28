@@ -145,7 +145,7 @@ export const placeTradeOrder = async (req: AuthRequest, res: Response) => {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { name: true, email: true },
+      select: { firstName: true, lastName:true, email: true },
     });
 
         const { items, net } = await buildTradeItems(lines, userId);
@@ -156,7 +156,8 @@ export const placeTradeOrder = async (req: AuthRequest, res: Response) => {
       data: {
         orderNumber,
         userId,
-        name: user?.name ?? "",
+        firstName:user?.firstName ?? "",
+        lastName:user?.lastName ?? "",
         email: user?.email ?? "",
         phone,
         shippingAddress,
@@ -171,13 +172,16 @@ export const placeTradeOrder = async (req: AuthRequest, res: Response) => {
       },
       include: { items: true },
     });
+    const firstName = `${order.firstName ?? user?.firstName}`;
+    const lastName = `${order.lastName ?? user?.lastName}`;
 
     // Email a tax invoice (reusing the existing invoice generator).
     if (user?.email) {
       const invoiceData = {
         orderNumber: order.orderNumber,
         createdAt: order.createdAt,
-        name: order.name || user.name,
+        firstName,
+        lastName,
         email: user.email,
         phone: order.phone,
         shippingAddress: order.shippingAddress,
@@ -198,7 +202,7 @@ export const placeTradeOrder = async (req: AuthRequest, res: Response) => {
           sendEmail({
             sendTo: user.email!,
             subject: `Trade order ${order.orderNumber}`,
-            html: `<p>Hi ${user.name},</p><p>Thanks for your trade order <b>${order.orderNumber}</b>. Your tax invoice is attached.</p>`,
+            html: `<p>Hi ${user.firstName + " " + user.lastName},</p><p>Thanks for your trade order <b>${order.orderNumber}</b>. Your tax invoice is attached.</p>`,
             attachments: [{ filename: `invoice-${order.orderNumber}.pdf`, content: pdf }],
           })
         )
@@ -310,7 +314,7 @@ export const runDueStandingOrders = async () => {
   const now = new Date();
   const due = await prisma.standingOrder.findMany({
     where: { status: "ACTIVE", nextRunAt: { lte: now } },
-    include: { user: { select: { name: true, email: true } } },
+    include: { user: { select: { firstName: true, lastName:true, email: true } } },
   });
 
   for (const so of due) {
@@ -325,7 +329,8 @@ export const runDueStandingOrders = async () => {
         data: {
           orderNumber,
           userId: so.userId,
-          name: so.user.name,
+          firstName: so.user.firstName,
+          lastName: so.user.lastName,
           email: so.user.email,
           phone: so.phone,
           shippingAddress: so.shippingAddress,

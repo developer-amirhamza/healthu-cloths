@@ -140,7 +140,7 @@ const FeatureSection = () => {
             </section>
 
             {/* ─── Split Feature Highlight ─── */}
-            <section className="bg-primary py-16 overflow-hidden">
+            <section className="bg-secondary py-16 overflow-hidden">
                 <div className="container mx-auto px-6">
                     <div className="grid md:grid-cols-2 gap-10 items-center">
 
@@ -158,12 +158,12 @@ const FeatureSection = () => {
                         </div>
 
                         {/* Right — content */}
-                        <div className="text-secondary flex flex-col gap-8">
+                        <div className="text-primary flex flex-col gap-8">
                             <div>
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-secondary-hover mb-4">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary-hover mb-4">
                                     Why Aidble
                                 </p>
-                                <h2 className="font-serif text-5xl md:text-6xl text-secondary tracking-tight leading-none mb-4">
+                                <h2 className="font-serif text-5xl md:text-6xl text-primary tracking-tight leading-none mb-4">
                                     Care that<br />breathes.
                                 </h2>
                                 <p className="text-text text-sm leading-relaxed max-w-[380px]">
@@ -176,10 +176,10 @@ const FeatureSection = () => {
                                 {features.map((f) => (
                                     <div
                                         key={f.title}
-                                        className="bg-secondary/20 border border-secondary/10 rounded-2xl p-5 hover:bg-secondary/10 transition-colors duration-200"
+                                        className="bg-primary/20 border border-primary/10 rounded-2xl p-5 hover:bg-primary/10 transition-colors duration-200"
                                     >
                                         <p className="text-xl mb-2">{f.icon}</p>
-                                        <p className="font-semibold text-secondary text-sm mb-1">{f.title}</p>
+                                        <p className="font-semibold text-primary text-sm mb-1">{f.title}</p>
                                         <p className="text-text text-xs leading-relaxed">{f.desc}</p>
                                     </div>
                                 ))}
@@ -187,7 +187,7 @@ const FeatureSection = () => {
 
                             <Link
                                 href="/products"
-                                className="inline-flex self-start items-center gap-2 bg-secondary text-background font-semibold text-sm px-6 py-3 rounded-full hover:bg-secondary-hover transition-colors duration-200"
+                                className="inline-flex self-start items-center gap-2 bg-primary text-background font-semibold text-sm px-6 py-3 rounded-full hover:bg-primary-hover transition-colors duration-200"
                             >
                                 Shop now
                                 <span className="text-base">→</span>

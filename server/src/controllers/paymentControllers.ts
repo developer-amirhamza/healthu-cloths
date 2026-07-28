@@ -4,6 +4,7 @@ import Stripe from 'stripe';
 import { getCartToken, getOrCreateCart } from './cart.controllers';
 import { prisma } from '../lib/prisma';
 import { errorHandler } from '../utils/errorHandler';
+import { subscriptionDiscountPctForInterval } from '../services/pricing';
 
 dotenv.config();
 
@@ -26,13 +27,26 @@ type CartItemWithProduct = {
         images: string[];
     };
     quantity: number;
+    subscriptionIntervalDays?: number | null;
+};
+
+// Per-line "Subscribe & Save" price after its tiered interval discount.
+const subscribedUnitPrice = (item: CartItemWithProduct) => {
+    const pct = subscriptionDiscountPctForInterval(item.subscriptionIntervalDays);
+    return pct > 0 ? +(item.product.price - (item.product.price * pct) / 100).toFixed(2) : item.product.price;
 };
 
 export const createCheckoutSession = async (req: AuthRequest, res: Response) => {
     try {
-        const { name, successUrl, cancelUrl, email, phone, shippingAddress } = req.body;
-        const token: any = getCartToken(req, res);
+        const { firstName, lastName, successUrl, cancelUrl, email, phone, shippingAddress, orderNote } = req.body;
+        const token = await getCartToken(req, res);
         const userId = req.userId;
+
+        // A guest must supply an email so we can send their order confirmation.
+        if (!userId && !email) {
+            return errorHandler(res, 400, "Email is required to check out as a guest.");
+        }
+
 
         // Log cart retrieval
         const cart = await getOrCreateCart(token, userId);
@@ -41,30 +55,43 @@ export const createCheckoutSession = async (req: AuthRequest, res: Response) => 
             return errorHandler(res, 400, 'Your cart is empty.');
         }
 
-        // Fix #1: Add type for 'item' in map
+        // Fix #1: Add type for 'item' in map — "Subscribe & Save" lines use
+        // their tiered-discount price instead of full retail.
         const lineItems = cart.items.map((item: CartItemWithProduct) => {
             // Get the first image and validate it's a proper URL
             const imageUrl = item.product.images?.[0];
             const isValidImageUrl = imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'));
+            const unitPrice = subscribedUnitPrice(item);
 
             return {
                 price_data: {
                     currency: 'aud',
                     product_data: {
-                        name: item.product.title,
+                        name: item.subscriptionIntervalDays
+                            ? `${item.product.title} (Subscribe & Save)`
+                            : item.product.title,
                         ...(isValidImageUrl && { images: [imageUrl] }),
                     },
-                    unit_amount: Math.round(item.product.price * 100),
+                    unit_amount: Math.round(unitPrice * 100),
                 },
                 quantity: item.quantity,
             };
         });
 
-        // Fix #2: Add types for 'acc' (number) and 'item' in reduce
-        const subtotal = cart.items.reduce(
+        // Retail subtotal, the Subscribe & Save discount taken off it, and
+        // the resulting net subtotal actually charged.
+        const retailSubtotal = cart.items.reduce(
             (acc: number, item: CartItemWithProduct) => acc + item.product.price * item.quantity,
             0
         );
+        const discount = +cart.items
+            .reduce(
+                (acc: number, item: CartItemWithProduct) =>
+                    acc + (item.product.price - subscribedUnitPrice(item)) * item.quantity,
+                0
+            )
+            .toFixed(2);
+        const subtotal = +(retailSubtotal - discount).toFixed(2);
 
         // Create pending order
         const order = await prisma.order.create({
@@ -73,9 +100,12 @@ export const createCheckoutSession = async (req: AuthRequest, res: Response) => 
                 userId: userId || undefined,
                 email: email || 'pending@example.com',
                 phone: phone || '',
-                name: name ?? null,
+                firstName: firstName ?? null,
+                lastName: lastName ?? null,
                 shippingAddress: shippingAddress || '',
+                orderNote: orderNote ?? null,
                 subtotal: subtotal,
+                discount: discount,
                 total: subtotal,
                 paymentMethod: 'STRIPE',
                 paymentStatus: 'Pending',
@@ -86,14 +116,41 @@ export const createCheckoutSession = async (req: AuthRequest, res: Response) => 
                         productId: item.product.id,     // Note: 'id' must exist on product (add to type if missing)
                         productName: item.product.title,
                         productImage: item.product.images[0] || null,
-                        price: item.product.price,
+                        price: subscribedUnitPrice(item),
                         quantity: item.quantity,
-                        total: item.product.price * item.quantity,
+                        total: +(subscribedUnitPrice(item) * item.quantity).toFixed(2),
                     })),
                 },
             },
         });
         console.log('Order created:', order.id);
+
+        // Any items the shopper subscribed to become a recurring Subscription
+        // (grouped by interval, since a subscription has a single cadence).
+        // Placed right away so the very order just paid for kicks off the
+        // recurring cycle — no dependency on the Stripe webhook firing.
+        if (userId) {
+            const subscribed = cart.items.filter((i: CartItemWithProduct) => i.subscriptionIntervalDays);
+            const byInterval = new Map<number, CartItemWithProduct[]>();
+            for (const item of subscribed) {
+                const days = item.subscriptionIntervalDays!;
+                byInterval.set(days, [...(byInterval.get(days) ?? []), item]);
+            }
+            for (const [intervalDays, items] of byInterval) {
+                const nextRunAt = new Date();
+                nextRunAt.setDate(nextRunAt.getDate() + intervalDays);
+                await prisma.subscription.create({
+                    data: {
+                        userId,
+                        intervalDays,
+                        nextRunAt,
+                        shippingAddress: shippingAddress || '',
+                        phone: phone || '',
+                        items: items.map((i) => ({ productId: i.product.id, quantity: i.quantity })),
+                    },
+                }).catch((e) => console.error('Failed to create subscription from checkout:', e));
+            }
+        }
 
         // Create Stripe session
         const session = await stripe.checkout.sessions.create({

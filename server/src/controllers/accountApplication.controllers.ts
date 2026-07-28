@@ -76,16 +76,16 @@ export const applyForAccount = async (req: AuthRequest, res: Response) => {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { name: true, email: true },
+      select: { firstName: true, lastName:true, email: true },
     });
 
     // Notify the team that a new application is awaiting approval.
     sendEmail({
       sendTo: TEAM_EMAIL,
-      subject: `New ${requestedRole} account application — ${user?.name ?? "Unknown"}`,
+      subject: `New ${requestedRole} account application — ${user?.firstName ?? "Unknown"}`,
       html: `<p>A new account application is awaiting approval.</p>
              <ul>
-               <li><b>Applicant:</b> ${user?.name ?? ""} (${user?.email ?? ""})</li>
+               <li><b>Applicant:</b> ${user?.firstName ?? ""} (${user?.email ?? ""})</li>
                <li><b>Requested role:</b> ${requestedRole}</li>
                <li><b>Business:</b> ${businessName ?? "-"}</li>
                <li><b>ABN:</b> ${abn ?? "-"}</li>
@@ -130,7 +130,7 @@ export const listApplications = async (req: Request, res: Response) => {
       where: status ? { status: String(status) } : undefined,
       orderBy: { createdAt: "desc" },
       include: {
-        user: { select: { id: true, name: true, email: true, role: true } },
+        user: { select: { id: true, firstName: true, lastName:true, email: true, role: true } },
       },
     });
     return res.status(200).json({ success: true, error: false, data: applications });
@@ -148,7 +148,7 @@ export const approveApplication = async (req: AuthRequest, res: Response) => {
 
     const application = await prisma.accountApplication.findUnique({
       where: { id },
-      include: { user: { select: { id: true, name: true, email: true } } },
+      include: { user: { select: { id: true, firstName: true, lastName:true, email: true } } },
     });
     if (!application) return errorHandler(res, 404, "Application not found", true);
 
@@ -171,7 +171,7 @@ export const approveApplication = async (req: AuthRequest, res: Response) => {
     sendEmail({
       sendTo: application.user.email,
       subject: "Your Aidble account has been approved",
-      html: `<p>Hi ${application.user.name},</p>
+      html: `<p>Hi ${application.user.firstName},</p>
              <p>Good news — your ${application.requestedRole === ROLES.TRADE ? "trade" : "NDIS coordinator"} account has been approved.
              You can now log in to access your portal.</p>
              <p>— The Aidble team</p>`,
@@ -197,7 +197,7 @@ export const rejectApplication = async (req: AuthRequest, res: Response) => {
 
     const application = await prisma.accountApplication.findUnique({
       where: { id },
-      include: { user: { select: { name: true, email: true } } },
+      include: { user: { select: { firstName: true, lastName:true, email: true } } },
     });
     if (!application) return errorHandler(res, 404, "Application not found", true);
 
@@ -214,7 +214,7 @@ export const rejectApplication = async (req: AuthRequest, res: Response) => {
     sendEmail({
       sendTo: application.user.email,
       subject: "Update on your Aidble account application",
-      html: `<p>Hi ${application.user.name},</p>
+      html: `<p>Hi ${application.user.firstName},</p>
              <p>Thank you for applying. Unfortunately we couldn't approve your application at this time.
              ${notes ? `<br/><b>Note:</b> ${notes}` : ""}</p>
              <p>Please reach out to ${TEAM_EMAIL} if you'd like to discuss.</p>`,

@@ -33,7 +33,7 @@ const COMPANY_LINKS = [
 
 const Footer = () => {
     return (
-        <footer className="w-full bg-primary py-12 text-text">
+        <footer className="w-full bg-secondary py-12 text-text">
 
             {/* Main footer content */}
             <div className="container mx-auto px-6 py-14  grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5">
@@ -109,19 +109,19 @@ const Footer = () => {
                     <div className="flex items-center text-background gap-3 mt-1">
                         <Link
                             href="https://www.facebook.com/healthuau/"
-                            className="w-9 h-9 rounded-full bg-secondary hover:bg-secondary-hover flex items-center justify-center transition-colors"
+                            className="w-9 h-9 rounded-full bg-primary hover:bg-primary-hover flex items-center justify-center transition-colors"
                         >
                             <FaFacebookF size={14} />
                         </Link>
                         <Link
                             href="https://www.instagram.com/healthu_au/"
-                            className="w-9 h-9 rounded-full bg-secondary hover:bg-secondary-hover flex items-center justify-center transition-colors"
+                            className="w-9 h-9 rounded-full bg-primary hover:bg-primary-hover flex items-center justify-center transition-colors"
                         >
                             <FaInstagram size={14} />
                         </Link>
                         <Link
                             href="https://www.linkedin.com/company/health-u-australia/"
-                            className="w-9 h-9 rounded-full bg-secondary hover:bg-secondary-hover flex items-center justify-center transition-colors"
+                            className="w-9 h-9 rounded-full bg-primary hover:bg-primary-hover flex items-center justify-center transition-colors"
                         >
                             <FaLinkedinIn size={14} />
                         </Link>

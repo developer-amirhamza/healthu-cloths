@@ -93,9 +93,9 @@ const Header1 = () => {
 
     return (
         <div className="sticky top-0 gap-3 mb-8 z-50 ">
-
+          {/* Top menu */}
             <div
-                className={`bg-secondary text-background transition-all duration-300 overflow-hidden top-bar
+                className={`bg-primary text-background transition-all duration-300 overflow-hidden top-bar
                     ${topbarVisible ? " max-h-10 opacity-100" : " max-h-0 opacity-0"} `}
             >
             <AutoScrollSlider speed={30} gap={50}
@@ -118,7 +118,7 @@ const Header1 = () => {
             </div>
 
             {/* Main navbar */}
-            <div className="bg-background/20 w-full  backdrop-blur-xl shadow-xl  border-b border-primary-hover">
+            <div className="bg-background/20 w-full  backdrop-blur-xl shadow-xl  ">
                 <div className=" mx-auto w-full flex items-center justify-center gap-4 px-4 h-16">
 
 
@@ -192,7 +192,7 @@ const Header1 = () => {
                         {/* Free Samples */}
                         {/* <Link
                             href="/free-samples"
-                            className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-secondary hover:bg-secondary-hover  text-background text-sm font-medium rounded-full transition-colors whitespace-nowrap"
+                            className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary-hover  text-background text-sm font-medium rounded-full transition-colors whitespace-nowrap"
                         >
                             Free Samples
                         </Link> */}
@@ -231,7 +231,7 @@ const Header1 = () => {
                         {/* Cart */}
                         <button
                             onClick={() => setOpenCartMenu(true)}
-                            className="relative flex items-center gap-2 bg-secondary cursor-pointer hover:bg-secondary-hover  text-background px-3 py-2 rounded-lg transition-colors"
+                            className="relative flex items-center gap-2 bg-primary cursor-pointer hover:bg-primary-hover  text-background px-3 py-2 rounded-lg transition-colors"
                         >
                             <BsCart4 size={20} className='animate-bounce ' />
                             {cartCount > 0 && (

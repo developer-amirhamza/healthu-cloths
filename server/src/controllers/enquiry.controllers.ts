@@ -16,15 +16,15 @@ const TEAM_EMAIL = "hello@aidble.com.au";
 export const submitFundingEnquiry = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
-    const { participantNeed, availableFunding, message, quoteId, name, email, phone } =
+    const { participantNeed, availableFunding, message, quoteId, firstName,lastName, email, phone } =
       req.body;
-
+      const fullName = firstName + " " +  lastName;
     const enquiry = await prisma.enquiry.create({
       data: {
         type: "FUNDING_SUPPORT",
         status: "NEW",
         userId: userId ?? null,
-        name: name ?? null,
+        name: fullName ?? null,
         email: email ?? null,
         phone: phone ?? null,
         participantNeed: participantNeed ?? null,
@@ -37,17 +37,18 @@ export const submitFundingEnquiry = async (req: AuthRequest, res: Response) => {
     // Build email, attaching the related quote PDF when present.
     const attachments: { filename: string; content: Buffer }[] = [];
     if (quoteId) {
-      const quote = await prisma.quote.findUnique({
+      const quote:any = await prisma.quote.findUnique({
         where: { id: quoteId },
-        include: { items: true, user: { select: { name: true, email: true } } },
+        include: { items: true, user: { select: { firstName: true, lastName:true, email: true } } },
       });
+      const fullName = quote.user?.firstName + " " +  quote.user?.lastName;
       if (quote) {
         try {
           const pdf = await generateQuotePdf({
             quoteNumber: quote.quoteNumber,
             createdAt: quote.createdAt,
             validUntil: quote.validUntil,
-            coordinatorName: quote.user.name,
+            coordinatorName: fullName,
             coordinatorEmail: quote.user.email,
             participantRef: quote.participantRef,
             planManagerEmail: quote.planManagerEmail,
@@ -71,7 +72,7 @@ export const submitFundingEnquiry = async (req: AuthRequest, res: Response) => {
       subject: `Funding support request${quoteId ? " (quote attached)" : ""}`,
       html: `<p>A funding support enquiry has been submitted.</p>
              <ul>
-               <li><b>From:</b> ${name ?? "-"} (${email ?? "-"}, ${phone ?? "-"})</li>
+               <li><b>From:</b> ${firstName ?? "-"} (${email ?? "-"}, ${phone ?? "-"})</li>
                <li><b>Participant need:</b> ${participantNeed ?? "-"}</li>
                <li><b>Available funding:</b> ${availableFunding ?? "-"}</li>
                <li><b>Message:</b> ${message ?? "-"}</li>
@@ -94,15 +95,15 @@ export const submitFundingEnquiry = async (req: AuthRequest, res: Response) => {
 export const submitEnquiry = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId;
-    const { type, name, email, phone, message } = req.body;
+    const { type, firstName,lastName, email, phone, message } = req.body;
     if (!message) return errorHandler(res, 400, "A message is required", true);
-
+    const fullName = firstName + " " +  lastName;
     const enquiry = await prisma.enquiry.create({
       data: {
         type: type === "TRADE" ? "TRADE" : "GENERAL",
         status: "NEW",
         userId: userId ?? null,
-        name: name ?? null,
+        name: fullName ?? null,
         email: email ?? null,
         phone: phone ?? null,
         message,
@@ -114,7 +115,7 @@ export const submitEnquiry = async (req: AuthRequest, res: Response) => {
       subject: `New ${enquiry.type.toLowerCase()} enquiry`,
       html: `<p>A new enquiry has been submitted.</p>
              <ul>
-               <li><b>From:</b> ${name ?? "-"} (${email ?? "-"}, ${phone ?? "-"})</li>
+               <li><b>From:</b> ${fullName ?? "-"} (${email ?? "-"}, ${phone ?? "-"})</li>
                <li><b>Message:</b> ${message}</li>
              </ul>`,
     }).catch(() => { });

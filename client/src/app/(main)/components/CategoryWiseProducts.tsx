@@ -70,13 +70,13 @@ const CategoryWiseProductDisplay: React.FC = () => {
                             whileHover={{ scale: 1.04 }}
                             whileTap={{ scale: 0.96 }}
                             className={`relative px-6 py-3 rounded-full text-sm font-semibold transition-colors duration-300 ease-in-out ${
-                                activeCategoryId === null ? 'text-background' : 'text-secondary-hover hover:text-secondary'
+                                activeCategoryId === null ? 'text-background' : 'text-primary-hover hover:text-primary'
                             }`}
                         >
                             {activeCategoryId === null && (
                                 <motion.span
                                     layoutId="category-pill"
-                                    className="absolute inset-0 bg-secondary rounded-full shadow-md"
+                                    className="absolute inset-0 bg-primary rounded-full shadow-md"
                                     transition={{ type: 'spring', stiffness: 380, damping: 32 }}
                                 />
                             )}
@@ -90,13 +90,13 @@ const CategoryWiseProductDisplay: React.FC = () => {
                                 whileHover={{ scale: 1.04 }}
                                 whileTap={{ scale: 0.96 }}
                                 className={`relative px-6 py-3 rounded-full text-sm font-semibold  transition-colors duration-300 ease-in-out ${
-                                    activeCategoryId === cat.id ? 'text-background' : 'text-secondary hover:text-secondary-hover'
+                                    activeCategoryId === cat.id ? 'text-background' : 'text-primary hover:text-primary-hover'
                                 }`}
                             >
                                 {activeCategoryId === cat.id && (
                                     <motion.span
                                         layoutId="category-pill"
-                                        className="absolute inset-0 bg-secondary rounded-full shadow-md"
+                                        className="absolute inset-0 bg-primary rounded-full shadow-md"
                                         transition={{ type: 'spring', stiffness: 380, damping: 32 }}
                                     />
                                 )}
@@ -140,7 +140,7 @@ const CategoryWiseProductDisplay: React.FC = () => {
                     }
                 </div>
                 <Link href={"/products"}
-                className='mt-12 border border-secondary px-5 py-3 rounded-full hover:bg-background transition-all duration-300 hover:scale-105 text-base font-medium shadow-xl '
+                className='mt-12 border border-primary px-5 py-3 rounded-full hover:bg-background transition-all duration-300 hover:scale-105 text-base font-medium shadow-xl '
                 >View All Products</Link>
             </div>
         </section>

@@ -55,14 +55,14 @@ const ContactUs = () => {
   const validInput = formData.name && formData.email && formData.message;
 
   const inputClass =
-    "w-full p-3 border border-black/10 rounded-lg outline-none bg-background text-text text-sm focus:border-secondary transition-colors";
+    "w-full p-3 border border-black/10 rounded-lg outline-none bg-background text-text text-sm focus:border-primary transition-colors";
 
   return (
     <section className="w-full bg-background py-14 lg:py-20">
       <div className="container mx-auto px-6">
         {/* Header */}
         <div className="text-center max-w-2xl mx-auto mb-12">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-secondary mb-3">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary mb-3">
             Contact
           </p>
           <h1 className="playfair-display text-3xl md:text-4xl text-foreground mb-4">
@@ -104,19 +104,19 @@ const ContactUs = () => {
               <div className="flex items-center gap-3 mt-2 pt-5 border-t border-black/10">
                 <Link
                   href="https://www.facebook.com/healthuau/"
-                  className="w-9 h-9 rounded-full bg-secondary hover:bg-secondary-hover text-white flex items-center justify-center transition-colors"
+                  className="w-9 h-9 rounded-full bg-primary hover:bg-primary-hover text-white flex items-center justify-center transition-colors"
                 >
                   <FaFacebookF size={14} />
                 </Link>
                 <Link
                   href="https://www.instagram.com/healthu_au/"
-                  className="w-9 h-9 rounded-full bg-secondary hover:bg-secondary-hover text-white flex items-center justify-center transition-colors"
+                  className="w-9 h-9 rounded-full bg-primary hover:bg-primary-hover text-white flex items-center justify-center transition-colors"
                 >
                   <FaInstagram size={14} />
                 </Link>
                 <Link
                   href="https://www.linkedin.com/company/health-u-australia/"
-                  className="w-9 h-9 rounded-full bg-secondary hover:bg-secondary-hover text-white flex items-center justify-center transition-colors"
+                  className="w-9 h-9 rounded-full bg-primary hover:bg-primary-hover text-white flex items-center justify-center transition-colors"
                 >
                   <FaLinkedinIn size={14} />
                 </Link>
@@ -133,7 +133,7 @@ const ContactUs = () => {
               </p>
               <Link
                 href="/apply/ndis"
-                className="inline-block text-sm font-semibold text-secondary underline underline-offset-4"
+                className="inline-block text-sm font-semibold text-primary underline underline-offset-4"
               >
                 Apply for coordinator access
               </Link>
@@ -203,8 +203,8 @@ const ContactUs = () => {
                 disabled={!validInput || loading}
                 className={`mt-2 rounded-full font-semibold text-sm px-6 py-3 transition-colors text-white ${
                   validInput && !loading
-                    ? "bg-secondary hover:bg-secondary-hover cursor-pointer"
-                    : "bg-secondary/40 cursor-not-allowed"
+                    ? "bg-primary hover:bg-primary-hover cursor-pointer"
+                    : "bg-primary/40 cursor-not-allowed"
                 }`}
               >
                 {loading ? "Sending…" : "Send message"}
@@ -233,7 +233,7 @@ const ContactRow = ({
 }) => {
   const content = (
     <div className="flex items-start gap-3">
-      <div className="w-9 h-9 shrink-0 rounded-full bg-secondary/10 text-secondary flex items-center justify-center">
+      <div className="w-9 h-9 shrink-0 rounded-full bg-primary/10 text-primary flex items-center justify-center">
         {icon}
       </div>
       <div className="flex flex-col">

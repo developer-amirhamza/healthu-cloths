@@ -10,11 +10,14 @@ import Axios from '@/utils/Axios';
 import { SummeryApi } from '@/app/common/SummeryApi';
 import fetchUserDetails from '@/utils/fetchUserDetaills';
 import { setUserDetails } from '@/redux/slices/userSlices';
+import { fetchCart } from '@/redux/slices/cartSlice';
+import { AppDispatch } from '@/redux/store';
 import AxiosToastError from '@/utils/AxiosToastError';
 import Link from 'next/link';
 
 const initialFormData = {
-    name: "",
+    firstName: "",
+    lastName: "",
     email: "",
     password: "",
 }
@@ -22,7 +25,7 @@ const SingUp = () => {
     const [formData, setFormData] = useState(initialFormData);
     const [showPassword, setShowPassword] = useState(false);
     const router = useRouter()
-    const dispatch = useDispatch()
+    const dispatch = useDispatch<AppDispatch>()
     const handleOnChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         setFormData({
@@ -48,12 +51,19 @@ const SingUp = () => {
                     data: formData,
                 })
                 if (response.data?.success) {
-                    localStorage.setItem("accessToken", response.data?.accessToken);
+                    localStorage.setItem("accessToken", response.data?.data?.accessToken);
+                    // Merge any guest cart into the new account (auth via the
+                    // accessToken cookie the signin just set); never block signup.
+                    try {
+                        await Axios({ ...SummeryApi.mergeCart, withCredentials: true });
+                    } catch {
+                        /* no guest cart to merge — ignore */
+                    }
                     const userDetails = await fetchUserDetails();
                     dispatch(setUserDetails(userDetails?.data))
+                    dispatch(fetchCart())
                     setFormData(initialFormData)
                     router.push("/")
-
                 }
             } else {
                 toast.error(responseData.message)
@@ -62,30 +72,38 @@ const SingUp = () => {
             AxiosToastError(error)
         }
     }
-    const validInput = Object.values(formData).every(el => el);
+    // Last name is optional; first name, email and password are required.
+    const validInput = Boolean(formData.firstName && formData.email && formData.password);
     return (
         <section className=' flex w-full h-full bg-background  '
          //style={{ backgroundImage: `url(${image})` }}
          >
             <div className="container px-5 mx-auto flex w-full justify-center py-10">
-                <div className="bg-primary shadow-2xl p-5 flex justify-center items-center w-full max-w-md h-full flex-col
+                <div className="bg-secondary shadow-2xl p-5 flex justify-center items-center w-full max-w-md h-full flex-col
             rounded-md gap-5  ">
                     <h1 className="text-2xl text-text text-center uppercase font-semibold">Create your account</h1>
                     <form onSubmit={handleSubmit} className="grid gap-5 w-full text-lg">
-                        <div className="grid gap-2 place-items-start">
-                            <label htmlFor="name" className="font-medium text-text">Full Name:</label>
-                            <input className='w-full font-medium text-neutral-700 p-2 outline-none border-2 border-secondary-hover rounded focus-within:border-secondary'
-                                value={formData.name} type="text" onChange={handleOnChange} name="name" id="name" placeholder='Enter your name' />
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="grid gap-2 place-items-start">
+                                <label htmlFor="firstName" className="font-medium text-text">First Name:</label>
+                                <input className='w-full font-medium text-neutral-700 p-2 outline-none border-2 border-primary-hover rounded focus-within:border-primary'
+                                    value={formData.firstName} type="text" onChange={handleOnChange} name="firstName" id="firstName" placeholder='First name' />
+                            </div>
+                            <div className="grid gap-2 place-items-start">
+                                <label htmlFor="lastName" className="font-medium text-text">Last Name:</label>
+                                <input className='w-full font-medium text-neutral-700 p-2 outline-none border-2 border-primary-hover rounded focus-within:border-primary'
+                                    value={formData.lastName} type="text" onChange={handleOnChange} name="lastName" id="lastName" placeholder='Last name' />
+                            </div>
                         </div>
                         <div className="grid gap-2 place-items-start">
                             <label htmlFor="email" className="font-medium text-text">Email:</label>
-                            <input className='w-full font-medium text-neutral-700 p-2 outline-none border-2 border-secondary-hover rounded focus-within:border-secondary'
+                            <input className='w-full font-medium text-neutral-700 p-2 outline-none border-2 border-primary-hover rounded focus-within:border-primary'
                                 value={formData.email} type="email" onChange={handleOnChange} name="email" id="email" placeholder='Enter your email' />
                         </div>
                         <div className="grid gap-2 place-items-start">
                             <label htmlFor="password" className="font-medium text-text">Password:</label>
                             <div className="relative w-full flex">
-                                <input className='w-full font-medium text-neutral-700 p-2 flex outline-none border-2 border-secondary-hover rounded focus-within:border-secondary'
+                                <input className='w-full font-medium text-neutral-700 p-2 flex outline-none border-2 border-primary-hover rounded focus-within:border-primary'
                                     placeholder='Enter your password'
                                     value={formData.password}
                                     onChange={handleOnChange}
@@ -101,11 +119,11 @@ const SingUp = () => {
                             </div>
                         </div>
                         <button disabled={!validInput} type="submit" value="Submit"
-                            className={`${validInput ? "bg-secondary-hover text-white  cursor-pointer hover:bg-secondary" : "bg-primary-hover   cursor-not-allowed"}  p-2 text-neutral-900
+                            className={`${validInput ? "bg-primary-hover text-white  cursor-pointer hover:bg-primary" : "bg-primary-hover   cursor-not-allowed"}  p-2 text-white
                             text-xl font-semibold rounded   `} >Signup</button>
                         <div className="flex justify-between w-full px-1">
                             <h1 className="text-neutral-600 font-medium">Already have an account?</h1>
-                            <Link href={"/signin"} className='text-xl font-bold text-secondary'>Login</Link>
+                            <Link href={"/signin"} className='text-xl font-bold text-amber-600'>Login</Link>
                         </div>
                     </form>
                 </div>

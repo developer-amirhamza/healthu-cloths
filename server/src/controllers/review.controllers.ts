@@ -12,7 +12,7 @@ export const getAllReviews = async (req: Request, res: Response) => {
   try {
     const reviews = await prisma.reviews.findMany({
       include: {
-        user: { select: { id: true, name: true, avatar: true, email: true } },
+        user: { select: { id: true, firstName: true, lastName:true, avatar: true, email: true } },
         product: { select: { id: true, title: true, images: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -44,7 +44,7 @@ export const getProductReviews = async (req: Request, res: Response) => {
       where: { productId: productId as string },
       include: {
         user: {
-          select: { id: true, name: true, avatar: true },
+          select: { id: true, firstName: true,lastName:true, avatar: true },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -106,7 +106,7 @@ export const addReview = async (req: AuthRequest, res: Response) => {
       },
       include: {
         user: {
-          select: { id: true, name: true, avatar: true },
+          select: { id: true, firstName: true,lastName:true, avatar: true },
         },
       },
     });
@@ -156,7 +156,7 @@ export const updateReview = async (req: AuthRequest, res: Response) => {
       where: { id: reviewId as string },
       data: updateData,
       include: {
-        user: { select: { id: true, name: true, avatar: true } },
+        user: { select: { id: true, firstName: true,lastName:true, avatar: true } },
       },
     });
 

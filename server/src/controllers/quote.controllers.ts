@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma";
 import { sendEmail } from "../config/sendEmail";
 import { computeQuote, QuoteLineInput } from "../services/quoteCalculator";
 import { generateQuotePdf } from "../utils/generateQuotePdf";
+import { quoteUnitPrice } from "./pricing.controllers";
 
 interface AuthRequest extends Request {
   userId?: string;
@@ -115,7 +116,7 @@ export const getMyQuotes = async (req: AuthRequest, res: Response) => {
 const findOwnedQuote = async (id: string, userId: string) =>
   prisma.quote.findFirst({
     where: { id, userId },
-    include: { items: true, user: { select: { name: true, email: true } } },
+    include: { items: true, user: { select: { firstName: true, lastName:true, email: true } } },
   });
 
 export const getQuote = async (req: AuthRequest, res: Response) => {
@@ -191,12 +192,13 @@ export const emailQuote = async (req: AuthRequest, res: Response) => {
     if (!userId) return errorHandler(res, 401, "Authentication required", true);
     const quote = await findOwnedQuote(id, userId);
     if (!quote) return errorHandler(res, 404, "Quote not found", true);
+    const fullName = quote.user?.firstName + " " + quote.user?.lastName;
 
     const pdf = await generateQuotePdf({
       quoteNumber: quote.quoteNumber,
       createdAt: quote.createdAt,
       validUntil: quote.validUntil,
-      coordinatorName: quote.user.name,
+      coordinatorName:fullName,
       coordinatorEmail: quote.user.email,
       participantRef: quote.participantRef,
       planManagerEmail: quote.planManagerEmail,
@@ -216,7 +218,7 @@ export const emailQuote = async (req: AuthRequest, res: Response) => {
     await sendEmail({
       sendTo: Array.from(new Set(recipients)).join(","),
       subject: `Your Aidble quote ${quote.quoteNumber}`,
-      html: `<p>Hi ${quote.user.name},</p>
+      html: `<p>Hi ${fullName},</p>
              <p>Please find attached your quote <b>${quote.quoteNumber}</b>
              (${quote.supplyPeriod} supply), valid until
              ${quote.validUntil ? new Date(quote.validUntil).toLocaleDateString("en-AU") : "—"}.</p>
@@ -258,7 +260,8 @@ export const convertQuoteToOrder = async (req: AuthRequest, res: Response) => {
       data: {
         orderNumber,
         userId,
-        name: quote.user.name,
+        firstName:quote.user.firstName,
+        lastName:quote.user.lastName,
         email: quote.user.email,
         phone: phone ?? "",
         shippingAddress: shippingAddress ?? "",

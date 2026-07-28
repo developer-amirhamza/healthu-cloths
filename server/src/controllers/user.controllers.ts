@@ -10,17 +10,21 @@ import verifyEmailTemplate from "../utils/verifyEmailTemplate";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from 'uuid';
 import { uploadImageCloudinary } from "../config/cloudinary";
+import dotenv from "dotenv";
 
+
+dotenv.config()
 interface AuthRequest extends Request {
     userId?: string;
 }
 
 const SignUp = async (req: Request, res: Response) => {
     try {
-        const { name, email, mobile, password, } = req.body;
+        console.log(req.body, "test user")
+        const { firstName, lastName, email, mobile, password, } = req.body;
 
         const id = uuidv4();
-        if (!name || !email || !password) {
+        if (!firstName || !email || !password) {
             return res.status(400).json({
                 success: false,
                 error: true,
@@ -37,7 +41,8 @@ const SignUp = async (req: Request, res: Response) => {
         const user = await prisma.user.create({
             data: {
                 id,
-                name,
+                firstName,
+                lastName,
                 email,
                 password: hashPassword,
                 verify_email: false,
@@ -49,9 +54,9 @@ const SignUp = async (req: Request, res: Response) => {
         // Email failure shouldn't fail the signup — the account is already created.
         const emailResult = await sendEmail({
             sendTo: email,
-            subject: "Verify email from MyBestiee",
+            subject: "Verify email from Bestiee",
             html: verifyEmailTemplate({
-                name,
+                firstName,
                 url: verifyEmailUrl,
             }),
         }).catch((err) => {
@@ -212,7 +217,8 @@ const GetUserDetails = async (req: AuthRequest, res: Response) => {
              where: { id: id },
             select:{
                 id:true,
-                name:true,
+                firstName:true,
+                lastName:true,
                 email:true,
                 mobile:true,
                 avatar:true,
@@ -241,7 +247,7 @@ const getAllUsers = async (req: Request, res: Response) => {
     try {
         const users = await prisma.user.findMany({
            select:{
-    id:true, name:true, email:true, mobile:true, avatar:true,
+    id:true, firstName:true, lastName:true, email:true, mobile:true, avatar:true,
     role:true, status:true, verify_email:true, last_login_date:true, createdAt:true,
 },
 orderBy: { createdAt: 'desc' }
@@ -260,16 +266,31 @@ orderBy: { createdAt: 'desc' }
     }
 };
 
+const ASSIGNABLE_ROLES = ["CONSUMER", "USER", "TRADE", "NDIS_COORDINATOR", "ADMIN"];
+
 export const updateUserByAdmin = async (req: Request, res: Response) => {
     try {
         const { id, status, role } = req.body;
         if (!id) return errorHandler(res, 400, "User ID is required", true);
+
+        const target = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+        if (!target) return errorHandler(res, 404, "User not found", true);
+
+        // The OWNER account is untouchable — no role/status change by anyone.
+        if (target.role === "OWNER") {
+            return errorHandler(res, 403, "The owner account cannot be modified", true);
+        }
+        // OWNER can never be granted through the API (DB-only, set once).
+        if (role && !ASSIGNABLE_ROLES.includes(role)) {
+            return errorHandler(res, 400, "Invalid role", true);
+        }
+
         const updatedData: any = {};
         if (status) updatedData.status = status;
         if (role) updatedData.role = role;
         const updatedUser = await prisma.user.update({
             where: { id }, data: updatedData,
-            select: { id: true, name: true, email: true, role: true, status: true }
+            select: { id: true, firstName:true, lastName:true, email: true, role: true, status: true }
         });
         res.status(200).json({ success: true, error: false, message: "User updated successfully", data: updatedUser });
     } catch (error: any) {
@@ -308,19 +329,23 @@ const updateUserDetails = async (req: AuthRequest, res: Response) => {
         if (!userId) {
             return errorHandler(res, 400, "User ID is required", true);
         };
-        const {name,email,password,mobile,avatar,role} = req.body;
+        const {firstName,lastName,email,password,mobile,avatar,role} = req.body;
         let hashPassword = "";
         if(password){
             const salt = await bcrypt.genSalt(10);
             hashPassword = await bcrypt.hash(password,salt);
         };
         const updatedData:any = {};
-        if(name) updatedData.name = name;
+        if(firstName) updatedData.firstName = firstName;
+        if(lastName) updatedData.lastName = lastName;
         if(email) updatedData.email = email;
         if(mobile) updatedData.mobile = mobile;
         if(password) updatedData.password = hashPassword;
         if(avatar) updatedData.avatar = avatar;
-        if(role) updatedData.role = role;
+        // SECURITY: role is intentionally NOT updatable here — this is the
+        // self-service profile endpoint, and honouring a role from the request
+        // body would let any user promote themselves (e.g. to ADMIN/OWNER).
+        // Role changes go through updateUserByAdmin only.
 
         const updatedUser = await prisma.user.update({
             where : {id:userId},
@@ -348,6 +373,12 @@ const deleteUser = async (req: Request, res: Response) => {
         if (!id) {
             return errorHandler(res, 400, "User ID is required", false);
         };
+        // The OWNER account can never be deleted.
+        const target = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+        if (!target) return errorHandler(res, 404, "User not found", true);
+        if (target.role === "OWNER") {
+            return errorHandler(res, 403, "The owner account cannot be deleted", true);
+        }
         await prisma.user.delete({ where: { id: id } });
         res.status(200).json({
             success: true,

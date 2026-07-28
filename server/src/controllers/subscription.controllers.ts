@@ -9,14 +9,6 @@ import { resolveUnitPrice, buildTotals } from "../services/pricing";
 interface AuthRequest extends Request {
   userId?: string;
 }
-interface OrderItemData {
-  productName: string;
-  productId: string;
-  productImage: string | null;
-  price: number;
-  quantity: number;
-  total: number;
-}
 
 interface LineInput {
   productId: string;
@@ -37,26 +29,36 @@ const generateOrderNumber = async () => {
   return orderNumber;
 };
 
-// Build consumer-priced order items for the given lines.
+// Build consumer-priced order items for the given lines. Rejects products
+// that are inactive/deleted or out of stock, and rejects a line whose
+// resolved unit price comes back as 0/NaN (misconfigured pricing).
 const buildConsumerItems = async (lines: LineInput[]) => {
-  const items:OrderItemData[] = [];
+  const items = [];
   let net = 0;
   for (const line of lines) {
     const quantity = Math.max(1, Number(line.quantity) || 1);
     const product = await prisma.product.findUnique({
       where: { id: line.productId },
-      select: { id: true, title: true, images: true },
+      select: { id: true, title: true, images: true, isActive: true, deletedAt: true, stock: true },
     });
     if (!product) throw new Error(`Product not found: ${line.productId}`);
+    if (!product.isActive || product.deletedAt) {
+      throw new Error(`"${product.title}" is no longer available`);
+    }
+    if (product.stock < quantity) {
+      throw new Error(`Only ${product.stock} left in stock for "${product.title}"`);
+    }
 
-
-     const unitPrice = Number(
+    const unitPrice = Number(
       (await resolveUnitPrice({
         productId: product.id,
         role: ROLES.CONSUMER,
-        quantity
+        quantity,
       })) ?? 0
     );
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+      throw new Error(`"${product.title}" has no price configured`);
+    }
     const lineTotal = +(unitPrice * quantity).toFixed(2);
     net += lineTotal;
 
@@ -70,6 +72,21 @@ const buildConsumerItems = async (lines: LineInput[]) => {
     });
   }
   return { items, net };
+};
+
+// Decrement stock for the given lines inside the passed transaction, throwing
+// if a concurrent order already consumed the stock (race-safe conditional update).
+const decrementStock = async (tx: any, lines: LineInput[]) => {
+  for (const line of lines) {
+    const quantity = Math.max(1, Number(line.quantity) || 1);
+    const updated = await tx.product.updateMany({
+      where: { id: line.productId, stock: { gte: quantity } },
+      data: { stock: { decrement: quantity } },
+    });
+    if (updated.count === 0) {
+      throw new Error(`Stock changed for one of your items — please review your order.`);
+    }
+  }
 };
 
 // List the consumer's subscriptions.
@@ -147,29 +164,70 @@ export const oneClickReorder = async (req: AuthRequest, res: Response) => {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { name: true, email: true },
+      select: { firstName: true, lastName:true, email: true },
     });
 
     const orderNumber = await generateOrderNumber();
-    const order = await prisma.order.create({
-      data: {
-        orderNumber,
-        userId,
-        name: user?.name ?? previous.name ?? "",
-        email: user?.email ?? previous.email,
-        phone: previous.phone,
-        shippingAddress: previous.shippingAddress,
-        subtotal: totals.subtotal,
-        shippingCost: totals.delivery,
-        tax: totals.gst,
-        total: totals.total,
-        paymentMethod: "Card",
-        paymentStatus: "Pending",
-        orderStatus: "Pending",
-        items: { create: items },
-      },
-      include: { items: true },
+    const order = await prisma.$transaction(async (tx) => {
+      await decrementStock(tx, lines);
+      return tx.order.create({
+        data: {
+          orderNumber,
+          userId,
+          firstName: user?.firstName ?? previous.firstName ?? "",
+          lastName: user?.lastName ?? previous.lastName ?? "",
+          email: user?.email ?? previous.email,
+          phone: previous.phone,
+          shippingAddress: previous.shippingAddress,
+          subtotal: totals.subtotal,
+          shippingCost: totals.delivery,
+          tax: totals.gst,
+          total: totals.total,
+          paymentMethod: "Card",
+          paymentStatus: "Pending",
+          orderStatus: "Pending",
+          items: { create: items },
+        },
+        include: { items: true },
+      });
     });
+
+    // Confirmation email + invoice, same as every other order path.
+    const email = user?.email ?? previous.email;
+    if (email) {
+      const firstName = `${order.firstName}` || previous.firstName || "";
+      const lastName = `${order.lastName}` || previous.lastName || "";
+      const invoiceData = {
+        orderNumber: order.orderNumber,
+        createdAt: order.createdAt,
+        firstName,
+        lastName,
+        email,
+        phone: order.phone,
+        shippingAddress: order.shippingAddress,
+        paymentMethod: order.paymentMethod,
+        items: order.items.map((i) => ({
+          productName: i.productName,
+          quantity: i.quantity,
+          price: i.price,
+          total: i.total,
+        })),
+        subtotal: order.subtotal,
+        shippingCost: order.shippingCost,
+        tax: order.tax,
+        total: order.total,
+      };
+      generateInvoicePdf(invoiceData)
+        .then((pdf) =>
+          sendEmail({
+            sendTo: email,
+            subject: `Order Confirmed – ${order.orderNumber}`,
+            html: `<p>Hi ${firstName + " " + lastName},</p><p>Your reorder <b>${order.orderNumber}</b> has been placed. Invoice attached.</p>`,
+            attachments: [{ filename: `invoice-${order.orderNumber}.pdf`, content: pdf }],
+          })
+        )
+        .catch((e) => console.error("Reorder invoice email error:", e));
+    }
 
     return res.status(200).json({
       success: true,
@@ -188,7 +246,7 @@ export const runDueSubscriptions = async () => {
   const now = new Date();
   const due = await prisma.subscription.findMany({
     where: { status: "ACTIVE", nextRunAt: { lte: now } },
-    include: { user: { select: { name: true, email: true } } },
+    include: { user: { select: { firstName: true, lastName:true, email: true } } },
   });
 
   for (const sub of due) {
@@ -196,28 +254,33 @@ export const runDueSubscriptions = async () => {
       const lines = (sub.items as any as LineInput[]) ?? [];
       if (lines.length === 0) continue;
       const { items, net } = await buildConsumerItems(lines);
-      // subscription discount applied here
-      const totals = await buildTotals({ net, subscription: true });
+      // Tiered Subscribe & Save discount, based on this subscription's cadence.
+      const totals = await buildTotals({ net, subscriptionIntervalDays: sub.intervalDays });
       const orderNumber = await generateOrderNumber();
 
-      const order = await prisma.order.create({
-        data: {
-          orderNumber,
-          userId: sub.userId,
-          name: sub.user.name,
-          email: sub.user.email,
-          phone: sub.phone,
-          shippingAddress: sub.shippingAddress,
-          subtotal: totals.subtotal,
-          shippingCost: totals.delivery,
-          tax: totals.gst,
-          total: totals.total,
-          paymentMethod: "Card",
-          paymentStatus: "Pending",
-          orderStatus: "Pending",
-          items: { create: items },
-        },
-        include: { items: true },
+      const order = await prisma.$transaction(async (tx) => {
+        await decrementStock(tx, lines);
+        return tx.order.create({
+          data: {
+            orderNumber,
+            userId: sub.userId,
+            firstName: sub.user.firstName,
+            lastName: sub.user.lastName,
+            email: sub.user.email,
+            phone: sub.phone,
+            shippingAddress: sub.shippingAddress,
+            subtotal: totals.subtotal,
+            discount: totals.discount,
+            shippingCost: totals.delivery,
+            tax: totals.gst,
+            total: totals.total,
+            paymentMethod: "Card",
+            paymentStatus: "Pending",
+            orderStatus: "Pending",
+            items: { create: items },
+          },
+          include: { items: true },
+        });
       });
 
       const next = new Date(sub.nextRunAt);
@@ -226,13 +289,16 @@ export const runDueSubscriptions = async () => {
         where: { id: sub.id },
         data: { nextRunAt: next },
       });
+        const firstName = `${order.firstName}` || sub?.user?.firstName || "";
+      const lastName = `${order.lastName}` || sub?.user?.lastName || "";
 
       // Discreet confirmation email with invoice.
       if (sub.user.email) {
         const invoiceData = {
           orderNumber: order.orderNumber,
           createdAt: order.createdAt,
-          name: order.name || sub.user.name,
+          firstName,
+          lastName,
           email: sub.user.email,
           phone: order.phone,
           shippingAddress: order.shippingAddress,
@@ -253,7 +319,7 @@ export const runDueSubscriptions = async () => {
             sendEmail({
               sendTo: sub.user.email!,
               subject: `Your subscription order ${order.orderNumber} is on its way`,
-              html: `<p>Hi ${sub.user.name},</p><p>Your recurring order <b>${order.orderNumber}</b> has been placed and will be shipped in plain, discreet packaging. Invoice attached.</p>`,
+              html: `<p>Hi ${sub.user.firstName + " " + sub.user.lastName},</p><p>Your recurring order <b>${order.orderNumber}</b> has been placed and will be shipped in plain, discreet packaging. Invoice attached.</p>`,
               attachments: [{ filename: `invoice-${order.orderNumber}.pdf`, content: pdf }],
             })
           )
