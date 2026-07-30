@@ -51,6 +51,10 @@ export const SummeryApi = {
         url: "/api/user/delete-user",
         method: "delete",
     },
+    uploadImage:{
+        url:"/api/images/upload",
+        method:"post"
+    },
     fetchProducts: {
         url: "/api/products/all",
         method: "get"

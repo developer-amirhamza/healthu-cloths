@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ChangeEvent } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useRouter } from 'next/navigation';
 import { AppDispatch, RootState } from '@/redux/store';
@@ -8,6 +8,7 @@ import { SummeryApi } from '@/app/common/SummeryApi';
 import AxiosToastError from '@/utils/AxiosToastError';
 import toast from 'react-hot-toast';
 import { fetchCategories } from '@/redux/slices/categorySlice';
+import { MdCloudUpload } from 'react-icons/md';
 
 interface MoreDetails {
     [key: string]: string;
@@ -117,6 +118,13 @@ const ProductCreatePage = () => {
         delete newDetails[key];
         setMoreDetails(newDetails);
     };
+    const handleUploadImage = async(e:ChangeEvent<HTMLInputElement>)=>{
+        try {
+
+        } catch (error) {
+            AxiosToastError(error)
+        }
+    }
 
     const addImage = () => {
         if (imageUrlInput.trim() && !images.includes(imageUrlInput.trim())) {
@@ -343,6 +351,16 @@ const ProductCreatePage = () => {
                 </div>
 
                 {/* Images (URLs) */}
+                <div>
+                    <label htmlFor="uploadImage">
+                        <MdCloudUpload size={28} />
+                    </label>
+                    <input type="file" name="uploadImage" id="uploadImage"
+                        className='hidden'
+                        onChange={handleUploadImage}
+                        
+                        />
+                </div>
                 <div>
                     <label className="block text-sm font-medium mb-1">Image URLs</label>
                     <div className="flex gap-2 mb-2">

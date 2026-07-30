@@ -20,7 +20,8 @@ import quoteRouter from "./routes/quote.routes"
 import enquiryRouter from "./routes/enquiry.routes"
 import tradeRouter from "./routes/trade.routes"
 import subscriptionRouter from "./routes/subscription.routes"
-import phase3Router from "./routes/phase3.routes"
+import phase3Router from "./routes/phase3.routes";
+import uploadImageRouter from "./routes/uploadImage.route";
 
 
 
@@ -63,6 +64,7 @@ app.use("/api/enquiries", enquiryRouter);
 app.use("/api/trade", tradeRouter)
 app.use("/api/subscriptions", subscriptionRouter);
 app.use("/api/phase3", phase3Router);
+app.use("/api/images/upload", uploadImageRouter);
 
 
 
