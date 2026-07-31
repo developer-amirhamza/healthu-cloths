@@ -9,6 +9,7 @@ import AxiosToastError from '@/utils/AxiosToastError';
 import toast from 'react-hot-toast';
 import { fetchCategories } from '@/redux/slices/categorySlice';
 import { MdCloudUpload } from 'react-icons/md';
+import uploadImage from '@/utils/UploadImage';
 
 interface MoreDetails {
     [key: string]: string;
@@ -118,9 +119,12 @@ const ProductCreatePage = () => {
         delete newDetails[key];
         setMoreDetails(newDetails);
     };
-    const handleUploadImage = async(e:ChangeEvent<HTMLInputElement>)=>{
+    const handleUploadImage = async(e:any)=>{
         try {
-
+            const file = e.target?.files[0]
+            if(!file)return;
+            const response = await uploadImage(file);
+            setImages([...images, response.data.url])
         } catch (error) {
             AxiosToastError(error)
         }
@@ -353,12 +357,15 @@ const ProductCreatePage = () => {
                 {/* Images (URLs) */}
                 <div>
                     <label htmlFor="uploadImage">
-                        <MdCloudUpload size={28} />
+                    <MdCloudUpload size={28} />
                     </label>
-                    <input type="file" name="uploadImage" id="uploadImage"
+                    <input
+                        type="file"
+                        name="uploadImage"
+                        id="uploadImage"
                         className='hidden'
                         onChange={handleUploadImage}
-                        
+                        value={imageUrlInput}
                         />
                 </div>
                 <div>
